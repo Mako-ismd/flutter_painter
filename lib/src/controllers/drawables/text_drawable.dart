@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import 'object_drawable.dart';
@@ -17,6 +15,8 @@ class TextDrawable extends ObjectDrawable {
 
   // A text painter which will paint the text on the canvas.
   final TextPainter textPainter;
+
+  bool isEditing = false;
 
   /// Creates a [TextDrawable] to draw [text].
   ///
@@ -56,8 +56,7 @@ class TextDrawable extends ObjectDrawable {
 
     // Paint the text on the canvas
     // It is shifted back by half of its width and height to be drawn in the center
-    textPainter.paint(canvas,
-        position - Offset(textPainter.width / 2, textPainter.height / 2));
+    if (!isEditing) textPainter.paint(canvas, position);
   }
 
   /// Creates a copy of this but with the given fields replaced with the new values.

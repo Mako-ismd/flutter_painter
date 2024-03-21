@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_painter/flutter_painter.dart';
+import 'package:flutter_painter/src/controllers/events/edit_text_painter_event.dart';
 import 'events/selected_object_drawable_removed_event.dart';
 import '../views/widgets/painter_controller_widget.dart';
 import 'actions/actions.dart';
@@ -44,6 +46,8 @@ class PainterController extends ValueNotifier<PainterControllerValue> {
   ///
   /// However, you can use it to grab information about the transformations.
   final TransformationController transformationController;
+
+  bool isEditingText = false;
 
   /// Create a [PainterController].
   ///
@@ -268,8 +272,12 @@ class PainterController extends ValueNotifier<PainterControllerValue> {
   }
 
   /// Dispatches a [AddTextPainterEvent] on `events` stream.
-  void addText() {
-    _eventsSteamController.add(const AddTextPainterEvent());
+  void addText(Offset offset, String text) {
+    _eventsSteamController.add(AddTextPainterEvent(offset, text));
+  }
+
+  void editText(TextDrawable drawable) {
+    _eventsSteamController.add(EditTextPainterEvent(drawable));
   }
 
   /// Adds an [ImageDrawable] to the center of the painter.

@@ -29,11 +29,15 @@ class _TextWidgetState extends State<_TextWidget> {
     super.initState();
 
     // Listen to the stream of events from the paint controller
-    WidgetsBinding.instance?.addPostFrameCallback((timeStamp) {
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       controllerEventSubscription =
           PainterController.of(context).events.listen((event) {
         // When an [AddTextPainterEvent] event is received, create a new text drawable
-        if (event is AddTextPainterEvent) createDrawable();
+        if (event is AddTextPainterEvent) {
+          createDrawable(event.offset, event.text);
+        } else if (event is EditTextPainterEvent) {
+          openTextEditor(event.drawable);
+        }
       });
     });
   }
@@ -75,25 +79,13 @@ class _TextWidgetState extends State<_TextWidget> {
   }
 
   /// Creates a new [TextDrawable], adds it to the controller and opens the editing widget.
-  void createDrawable() {
+  void createDrawable(Offset offset, String text) {
     if (selectedDrawable != null) return;
-
-    // Calculate the center of the painter
-    final renderBox = PainterController.of(context)
-        .painterKey
-        .currentContext
-        ?.findRenderObject() as RenderBox?;
-    final center = renderBox == null
-        ? Offset.zero
-        : Offset(
-            renderBox.size.width / 2,
-            renderBox.size.height / 2,
-          );
 
     // Create a new hidden empty entry in the center of the painter
     final drawable = TextDrawable(
-      text: '',
-      position: center,
+      text: text,
+      position: offset,
       style: settings.textStyle,
       hidden: true,
     );
@@ -117,6 +109,8 @@ class _TextWidgetState extends State<_TextWidget> {
   /// Opens an editor to edit the text of [drawable].
   Future<void> openTextEditor(TextDrawable drawable,
       [bool isNew = false]) async {
+    PainterController.of(context).isEditingText = true;
+    drawable.isEditing = true;
     await Navigator.push(
         context,
         PageRouteBuilder(
@@ -192,7 +186,7 @@ class EditTextWidgetState extends State<EditTextWidget>
     textFieldNode.addListener(focusListener);
 
     // Requests focus for the focus node after the first frame is rendered
-    WidgetsBinding.instance?.addPostFrameCallback((timeStamp) {
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
       textFieldNode.requestFocus();
     });
 
@@ -202,13 +196,13 @@ class EditTextWidgetState extends State<EditTextWidget>
     // Add this object as an observer for widget bindings
     //
     // This is used to check the bottom view insets (the keyboard size on mobile)
-    WidgetsBinding.instance?.addObserver(this);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   @override
   void dispose() {
     // Remove this object from being an observer
-    WidgetsBinding.instance?.removeObserver(this);
+    WidgetsBinding.instance.removeObserver(this);
 
     // Stop listening to the focus node
     textFieldNode.removeListener(focusListener);
@@ -227,42 +221,40 @@ class EditTextWidgetState extends State<EditTextWidget>
     //
     // This is used to add padding to the text editing widget so that the keyboard
     // doesn't block it
-    final mediaQuery = MediaQuery.of(context);
-    final screenHeight = mediaQuery.size.height;
-    final keyboardHeight = mediaQuery.viewInsets.bottom;
-    final renderBox = widget.controller.painterKey.currentContext
-        ?.findRenderObject() as RenderBox?;
-    final y = renderBox?.localToGlobal(Offset.zero).dy ?? 0;
-    final height = renderBox?.size.height ?? screenHeight;
 
     return GestureDetector(
       // If the border is tapped, un-focus the text field
-      onTap: () => textFieldNode.unfocus(),
+      onTapDown: (details) {
+        final distance = details.localPosition - widget.drawable.position;
+        if (distance.dx.abs() < 25 && distance.dy.abs() < 25) return;
+        textFieldNode.unfocus();
+        widget.drawable.isEditing = false;
+        widget.controller.isEditingText = false;
+      },
       child: Container(
-        color: Colors.black38,
+        color: Colors.transparent,
         child: Padding(
           padding: EdgeInsets.only(
-              bottom: (keyboardHeight - (screenHeight - height - y))
-                  .clamp(0, screenHeight)),
-          child: Center(
-            child: TextField(
-              decoration: const InputDecoration(
-                border: InputBorder.none,
-                contentPadding: EdgeInsets.zero,
-                isDense: true,
-              ),
-              cursorColor: Colors.white,
-              buildCounter: buildEmptyCounter,
-              maxLength: 1000,
-              minLines: 1,
-              maxLines: 10,
-              controller: textEditingController,
-              focusNode: textFieldNode,
-              style: settings.textStyle,
-              textAlign: TextAlign.center,
-              textAlignVertical: TextAlignVertical.center,
-              onEditingComplete: onEditingComplete,
+            left: widget.drawable.position.dx,
+            top: widget.drawable.position.dy,
+          ),
+          child: TextField(
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+              isDense: true,
             ),
+            cursorColor: Colors.black,
+            buildCounter: buildEmptyCounter,
+            maxLength: 1000,
+            minLines: 1,
+            maxLines: 10,
+            controller: textEditingController,
+            focusNode: textFieldNode,
+            style: settings.textStyle,
+            textAlign: TextAlign.left,
+            textAlignVertical: TextAlignVertical.top,
+            onEditingComplete: onEditingComplete,
           ),
         ),
       ),
@@ -301,6 +293,8 @@ class EditTextWidgetState extends State<EditTextWidget>
   ///
   /// If the text is empty, it will remove the drawable from the controller.
   void onEditingComplete() {
+    widget.drawable.isEditing = false;
+    widget.controller.isEditingText = false;
     if (textEditingController.text.trim().isEmpty) {
       widget.controller.removeDrawable(widget.drawable);
       if (!widget.isNew) {
