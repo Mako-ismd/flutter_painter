@@ -36,7 +36,7 @@ class TextDrawable extends ObjectDrawable {
     Set<ObjectDrawableAssist> assists = const <ObjectDrawableAssist>{},
   })  : textPainter = TextPainter(
           text: TextSpan(text: text, style: style),
-          textAlign: TextAlign.center,
+          textAlign: TextAlign.start,
           textScaleFactor: scale,
           textDirection: direction,
         ),
