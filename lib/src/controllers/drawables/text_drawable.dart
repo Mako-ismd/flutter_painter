@@ -18,6 +18,9 @@ class TextDrawable extends ObjectDrawable {
 
   bool isEditing = false;
 
+  @override
+  bool get isNotHidden => !isEditing && !hidden;
+
   /// Creates a [TextDrawable] to draw [text].
   ///
   /// The path will be drawn with the passed [style] if provided.
@@ -51,12 +54,13 @@ class TextDrawable extends ObjectDrawable {
   /// Draws the text on the provided [canvas] of size [size].
   @override
   void drawObject(Canvas canvas, Size size) {
+    if (isEditing) return;
     // Render the text according to the size of the canvas taking the scale in mind
     textPainter.layout(maxWidth: size.width * scale);
 
     // Paint the text on the canvas
     // It is shifted back by half of its width and height to be drawn in the center
-    if (!isEditing) textPainter.paint(canvas, position);
+    textPainter.paint(canvas, position);
   }
 
   /// Creates a copy of this but with the given fields replaced with the new values.
